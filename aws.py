@@ -5,9 +5,9 @@ from zipfile import ZipFile
 from os import path
 
 UPDATE_LAMBDAS = True
-INIT = False
+INIT = True
 LAMBDA_NAMES = ['coordinator', 'count', 'distinct', 'filter', 'first', 'group_by_key', 'group_by_value',
-                'intersection', 'map', 'reduce_by_key', 'reduce', 'take', 'union']
+                'intersection', 'map', 'reduce_by_key', 'reduce', 'take', 'union', 'take_ordered']
 S3_BUCKETS = {
     "input": 'input-sbg-bucket',
     "output": 'output-sbg-bucket',
@@ -26,7 +26,7 @@ def extract_payload(resp):
 def zip_code(lambda_name):
     if UPDATE_LAMBDAS or (not path.isfile(lambda_name + '.zip')):
         with ZipFile(lambda_name + '.zip', 'w') as zip_file:
-            if lambda_name in ['filter', 'map', 'reduce', 'reduce_by_key', 'map2', 'filter2']:
+            if lambda_name in ['filter', 'map', 'reduce', 'reduce_by_key', 'take_ordered']:
                 zip_file.write(lambda_name + '_func.py')
 
             zip_file.write(lambda_name + '.py')
