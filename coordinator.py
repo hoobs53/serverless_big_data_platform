@@ -20,17 +20,21 @@ def extract_body(response):
 
 
 def handle_requests(lambdas, data):
-    function_to_run = lambdas[0]
+    function_to_run = lambdas[0]['name']
     i = 0
     for function_name in lambdas:
-        function_to_run = function_name
-        if function_name in ['first', 'take', 'count', 'reduce', 'group_by_key', 'group_by_value', 'reduce_by_key',
-                             'union', 'first2']:
+        function_to_run = function_name['name']
+        if function_name['name'] in ['first', 'take', 'count', 'reduce', 'group_by_key', 'group_by_value', 'reduce_by_key',
+                             'union']:
             break
-        print("Invoking function '%s'..." % function_name)
+        print("Invoking function '%s'..." % function_name['name'])
+        if 'func' in function_name:
+            payload = {'id': data, 'func':function_name['func']}
+        else:
+            payload = {'id': data}
         response = lambda_client.invoke(
-            FunctionName=function_name,
-            Payload=json.dumps(data),
+            FunctionName=function_name['name'],
+            Payload=json.dumps(payload),
             LogType='Tail')
         data = extract_payload(response)
         i += 1
@@ -40,17 +44,21 @@ def handle_requests(lambdas, data):
 
 
 def handle_one_request(lambdas, data):
-    function_to_run = lambdas[0]
+    function_to_run = lambdas[0]['name']
     print("Invoking function '%s'..." % function_to_run)
+    if 'func' in lambdas:
+        payload = {'id': data, 'func':lambdas['func']}
+    else:
+        payload = {'id': data}
     response = lambda_client.invoke(
         FunctionName=function_to_run,
-        Payload=json.dumps(data),
+        Payload=json.dumps(payload),
         LogType='Tail')
     data = extract_payload(response)
     if len(lambdas) == 1:
         function_to_run = "None"
     else:
-        function_to_run = lambdas[1]
+        function_to_run = lambdas[1]['name']
     return data, function_to_run
 
 
@@ -62,7 +70,7 @@ def get_from_dynamo(key):
 def merge_data(data):
     dynamo_data = []
     for d in data:
-        for d2 in table.get_item(Key={'id': d[0]})['Item']['value']:
+        for d2 in json.loads(table.get_item(Key={'id': d[0]})['Item']['value']):
             dynamo_data.append(d2)
     result = []
     for d in dynamo_data:
@@ -78,7 +86,7 @@ def split_list(alist, wanted_parts=3):
 
 def should_batch(lambda_name):
     return lambda_name not in ['first', 'take', 'count', 'reduce', 'group_by_key', 'group_by_value', 'reduce_by_key',
-                               'union', 'first2']
+                               'union']
 
 
 def lambda_handler(event, context):
@@ -88,15 +96,14 @@ def lambda_handler(event, context):
     security_grzybek = 0
 
     while True:
-        print(lambdas_left)
-        if should_batch(lambdas_left[0]):
+        if should_batch(lambdas_left[0]['name']):
             futs = []
             data_batches = split_list(data)
             i = 1
             with ThreadPoolExecutor(max_workers=3) as executor:
                 for batch in data_batches:
                     file_key = i
-                    table.put_item(Item={'id': file_key, 'value': batch, 'type': 'int set'})
+                    table.put_item(Item={'id': file_key, 'value': json.dumps(batch), 'type': 'int set'})
                     futs.append(
                         executor.submit(handle_requests,
                                         lambdas=lambdas_left,
@@ -112,11 +119,11 @@ def lambda_handler(event, context):
                 else:
                     print("Else next func: " + data[0][1])
                     next_func = data[0][1]
-                    lambdas_left = deque(itertools.dropwhile(lambda x: x != next_func, lambdas_left))
+                    lambdas_left = deque(itertools.dropwhile(lambda x: x['name'] != next_func, lambdas_left))
                     data = merge_data(data)
         else:
             print("one: " + str(data))
-            table.put_item(Item={'id': 50, 'value': data, 'type': 'int set'})
+            table.put_item(Item={'id': 50, 'value': json.dumps(data), 'type': 'int set'})
             data = handle_one_request(
                 lambdas=lambdas_left,
                 data=50

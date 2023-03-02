@@ -1,8 +1,8 @@
 from itertools import groupby
 import boto3
 import json
-from reduce_by_key_func import do_reduce
 from functools import reduce
+from operator import itemgetter
 
 
 def extract_body(response):
@@ -10,24 +10,17 @@ def extract_body(response):
     return payload
 
 
-def key_func(k):
-    return k['company']
-
-
 def lambda_handler(event, context):
     dynamo_client = boto3.resource(service_name='dynamodb', region_name="eu-central-1")
-    key = event
+    event_json = event
+    key = event_json['id']
+    func = event_json['func']
+    do_reduce = eval(func)
     table = dynamo_client.Table('intermediate1')
     dynamo_data = table.get_item(Key={'id': key})['Item']['value']
-    key = dynamo_data['key']
-    data = dynamo_data['data']
+    data = json.loads(dynamo_data)
 
-    data = sorted(data, key=key_func)
-
-    result = groupby(data, key_func)
-
-    for k, v in result.items():
-        v = reduce(do_reduce, v)
+    result = ([reduce(do_reduce, group) for _, group in groupby(sorted(data), key=itemgetter(0))])
 
     return {
         'statusCode': 200,

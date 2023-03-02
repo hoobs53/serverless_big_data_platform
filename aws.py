@@ -26,7 +26,7 @@ def extract_payload(resp):
 def zip_code(lambda_name):
     if UPDATE_LAMBDAS or (not path.isfile(lambda_name + '.zip')):
         with ZipFile(lambda_name + '.zip', 'w') as zip_file:
-            if lambda_name in ['filter', 'map', 'reduce', 'reduce_by_key', 'take_ordered']:
+            if lambda_name in ['take_ordered']:
                 zip_file.write(lambda_name + '_func.py')
 
             zip_file.write(lambda_name + '.py')
@@ -156,14 +156,6 @@ if INIT:
     except Exception as e:
         print("Error while creating dynamo tables: " + str(e))
 
-    print("Try to write data to dynamoDb")
-    intermediate1 = dynamo_client.Table('intermediate1')
-    intermediate1.put_item(Item={'id': 1, 'value': 13, 'type': 'int'})
-    intermediate1.put_item(Item={'id': 2, 'value': 14, 'type': 'int'})
-    intermediate1.put_item(Item={'id': 3, 'value': 15, 'type': 'int'})
-    item = intermediate1.get_item(Key={'id': 1})['Item']['value']
-    print(item)
-
     try:
         print("creating LambdaBasicExecution iam role...")
         response = iam.create_role(
@@ -272,14 +264,17 @@ if INIT:
 
 data = json.dumps(
     {
-        "lambdas": ['map', 'filter', 'first'],
+        "lambdas": [
+            {'name': 'map', 'func': 'lambda x: x*2'},
+            {'name': 'filter', 'func': 'lambda x: x<4'},
+            {'name': 'first'}
+        ],
         "data": [1,
                  2,
                  3,
                  4,
                  5,
                  6],
-        "s3-buckets": S3_BUCKETS
     }
 )
 
@@ -289,39 +284,6 @@ st = time()
 
 response = lambda_client.invoke(
     FunctionName='coordinator',
-    Payload=data,
-    LogType='Tail')
-
-et = time()
-
-result = extract_payload(response)
-
-print("Result: " + str(result))
-print("Time: ", et - st)
-
-data = json.dumps(
-    {
-        "lambdas": [
-            "map2",
-            "filter2",
-            "first2"
-        ],
-        "data": [
-            1,
-            2,
-            4,
-            5,
-            6,
-        ]
-    }
-)
-
-print("invoking coordinator2...")
-
-st = time()
-
-response = lambda_client.invoke(
-    FunctionName='coordinator2',
     Payload=data,
     LogType='Tail')
 
