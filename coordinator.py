@@ -8,9 +8,17 @@ lambda_client = boto3.client('lambda', region_name="eu-central-1")
 dynamo_client = boto3.resource(service_name='dynamodb', region_name="eu-central-1")
 table = dynamo_client.Table('intermediate1')
 
+logs = {}
+
+
+def init_logs():
+    global logs
+    logs = {"splits_in_total": 0, "lambdas_executed": [], "merges_in_total": 0}
+
 
 def extract_payload(response):
     payload = json.loads(response['Payload'].read())
+    print(payload)
     return payload['body']
 
 
@@ -20,16 +28,17 @@ def extract_body(response):
 
 
 def handle_requests(lambdas, data):
-    function_to_run = lambdas[0]['name']
     i = 0
+    function_to_run = "None"
     for function_name in lambdas:
         function_to_run = function_name['name']
-        if function_name['name'] in ['first', 'take', 'count', 'reduce', 'group_by_key', 'group_by_value', 'reduce_by_key',
-                             'union']:
+        if function_name['name'] in ['first', 'take', 'count', 'reduce', 'group_by_key', 'group_by_value',
+                                     'reduce_by_key', 'union']:
             break
         print("Invoking function '%s'..." % function_name['name'])
+        logs["lambdas_executed"].append(function_to_run)
         if 'func' in function_name:
-            payload = {'id': data, 'func':function_name['func']}
+            payload = {'id': data, 'func': function_name['func']}
         else:
             payload = {'id': data}
         response = lambda_client.invoke(
@@ -45,9 +54,10 @@ def handle_requests(lambdas, data):
 
 def handle_one_request(lambdas, data):
     function_to_run = lambdas[0]['name']
+    logs["lambdas_executed"].append(function_to_run)
     print("Invoking function '%s'..." % function_to_run)
-    if 'func' in lambdas:
-        payload = {'id': data, 'func':lambdas['func']}
+    if 'func' in lambdas[0]:
+        payload = {'id': data, 'func': lambdas[0]['func']}
     else:
         payload = {'id': data}
     response = lambda_client.invoke(
@@ -68,6 +78,7 @@ def get_from_dynamo(key):
 
 
 def merge_data(data):
+    logs["merges_in_total"] += 1
     dynamo_data = []
     for d in data:
         for d2 in json.loads(table.get_item(Key={'id': d[0]})['Item']['value']):
@@ -79,6 +90,8 @@ def merge_data(data):
 
 
 def split_list(alist, wanted_parts=3):
+    logs["default_batch_size"] = wanted_parts
+    logs["splits_in_total"] += 1
     length = len(alist)
     return [alist[i * length // wanted_parts: (i + 1) * length // wanted_parts]
             for i in range(wanted_parts)]
@@ -90,6 +103,7 @@ def should_batch(lambda_name):
 
 
 def lambda_handler(event, context):
+    init_logs()
     lambdas_to_run = event['lambdas']
     lambdas_left = deque(lambdas_to_run)
     data = event['data']
@@ -139,5 +153,5 @@ def lambda_handler(event, context):
             break
     return {
         'statusCode': 200,
-        'body': data
+        'body': {"data": data, "logs": logs}
     }

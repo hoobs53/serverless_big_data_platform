@@ -4,27 +4,30 @@ from time import sleep, time
 from zipfile import ZipFile
 from os import path
 
-UPDATE_LAMBDAS = True
-INIT = True
 LAMBDA_NAMES = ['coordinator', 'count', 'distinct', 'filter', 'first', 'group_by_key', 'group_by_value',
                 'intersection', 'map', 'reduce_by_key', 'reduce', 'take', 'union', 'take_ordered']
-S3_BUCKETS = {
-    "input": 'input-sbg-bucket',
-    "output": 'output-sbg-bucket',
-    "intermediate1": 'intermediate1-sbg-bucket',
-    "intermediate2": 'intermediate2-sbg-bucket',
-    "intermediate3": 'intermediate3-sbg-bucket'
-}
+
 REGION = "eu-central-1"
+
+iam = boto3.client('iam')
+lambda_client = boto3.client('lambda', region_name=REGION)
+s3_client = boto3.client('s3', region_name=REGION)
+dynamo_client = boto3.resource(service_name='dynamodb', region_name=REGION)
 
 
 def extract_payload(resp):
     payload = json.loads(resp['Payload'].read())
-    return payload['body']
+    try:
+        result = payload['body']
+    except Exception as e:
+        print("exception while parsing the payload body: " + str(e))
+        result = payload
+
+    return result
 
 
-def zip_code(lambda_name):
-    if UPDATE_LAMBDAS or (not path.isfile(lambda_name + '.zip')):
+def zip_code(lambda_name, update_lambdas):
+    if update_lambdas or (not path.isfile(lambda_name + '.zip')):
         with ZipFile(lambda_name + '.zip', 'w') as zip_file:
             if lambda_name in ['take_ordered']:
                 zip_file.write(lambda_name + '_func.py')
@@ -37,7 +40,7 @@ def zip_code(lambda_name):
         return zipped_code
 
 
-def create_lambda_function(lambda_name, zipped_code, role):
+def create_lambda_function(lambda_name, zipped_code, role, update_lambdas):
     try:
         print("creating \'" + lambda_name + "\' lambda function...")
 
@@ -55,7 +58,7 @@ def create_lambda_function(lambda_name, zipped_code, role):
 
     except lambda_client.exceptions.ResourceConflictException:
         print("lambda already exists")
-        if UPDATE_LAMBDAS:
+        if update_lambdas:
             print("updating lambda code...")
             lambda_client.update_function_code(FunctionName=lambda_name, ZipFile=zipped_code)
 
@@ -70,12 +73,7 @@ def create_s3_bucket(bucket_name):
         print("bucket already exists")
 
 
-iam = boto3.client('iam')
-lambda_client = boto3.client('lambda', region_name=REGION)
-s3_client = boto3.client('s3', region_name=REGION)
-dynamo_client = boto3.resource(service_name='dynamodb', region_name=REGION)
-
-if INIT:
+def init(update_lambdas):
     basic_lambda_policy = {
         "Version": "2012-10-17",
         "Statement": [
@@ -158,7 +156,7 @@ if INIT:
 
     try:
         print("creating LambdaBasicExecution iam role...")
-        response = iam.create_role(
+        iam.create_role(
             RoleName='LambdaBasicExecution',
             AssumeRolePolicyDocument=json.dumps(basic_lambda_policy),
         )
@@ -168,7 +166,7 @@ if INIT:
 
     try:
         print("attaching S3FullAccess policy to iam role...")
-        response = iam.attach_role_policy(
+        iam.attach_role_policy(
             RoleName='LambdaBasicExecution',
             PolicyArn='arn:aws:iam::aws:policy/AmazonS3FullAccess',
         )
@@ -178,7 +176,7 @@ if INIT:
 
     try:
         print("attaching DynamoDB policy to iam role...")
-        response = iam.attach_role_policy(
+        iam.attach_role_policy(
             RoleName='LambdaBasicExecution',
             PolicyArn='arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess',
         )
@@ -188,7 +186,7 @@ if INIT:
 
     try:
         print("attaching CloudWatchLogsFullAccess policy to iam role...")
-        response = iam.attach_role_policy(
+        iam.attach_role_policy(
             RoleName='LambdaBasicExecution',
             PolicyArn='arn:aws:iam::aws:policy/CloudWatchLogsFullAccess',
         )
@@ -198,7 +196,7 @@ if INIT:
 
     try:
         print("creating CoordinatorLambdaExecution iam role...")
-        response = iam.create_role(
+        iam.create_role(
             RoleName='CoordinatorLambdaExecution',
             AssumeRolePolicyDocument=json.dumps(basic_lambda_policy),
         )
@@ -208,7 +206,7 @@ if INIT:
 
     try:
         print("attaching S3FullAccess policy to iam role...")
-        response = iam.attach_role_policy(
+        iam.attach_role_policy(
             RoleName='CoordinatorLambdaExecution',
             PolicyArn='arn:aws:iam::aws:policy/AmazonS3FullAccess',
         )
@@ -218,7 +216,7 @@ if INIT:
 
     try:
         print("attaching DynamoDB policy to iam role...")
-        response = iam.attach_role_policy(
+        iam.attach_role_policy(
             RoleName='CoordinatorLambdaExecution',
             PolicyArn='arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess',
         )
@@ -228,7 +226,7 @@ if INIT:
 
     try:
         print("attaching CloudWatchLogsFullAccess policy to iam role...")
-        response = iam.attach_role_policy(
+        iam.attach_role_policy(
             RoleName='CoordinatorLambdaExecution',
             PolicyArn='arn:aws:iam::aws:policy/service-role/AWSLambdaRole',
         )
@@ -239,13 +237,6 @@ if INIT:
     lambda_role = iam.get_role(RoleName='LambdaBasicExecution')
     coordinator_role = iam.get_role(RoleName='CoordinatorLambdaExecution')
 
-    print("synchronizing s3 buckets...")
-
-    for key, name in S3_BUCKETS.items():
-        create_s3_bucket(name)
-
-    print("all buckets synchronized...")
-
     print("synchronizing lambdas...")
 
     for name in LAMBDA_NAMES:
@@ -254,45 +245,49 @@ if INIT:
         else:
             role = lambda_role
 
-        zipped_code = zip_code(name)
-        create_lambda_function(name, zipped_code, role)
+        zipped_code = zip_code(name, update_lambdas)
+        create_lambda_function(name, zipped_code, role, update_lambdas)
 
     print("all lambdas synchronized...")
     print("waiting 3 seconds to ensure lambdas deployment...")
 
     sleep(3)
 
-data = json.dumps(
-    {
-        "lambdas": [
-            {'name': 'map', 'func': 'lambda x: x*2'},
-            {'name': 'filter', 'func': 'lambda x: x<4'},
-            {'name': 'first'}
-        ],
-        "data": [1,
-                 2,
-                 3,
-                 4,
-                 5,
-                 6],
-    }
-)
+    print("successfully initialized")
 
-print("invoking coordinator...")
+    # data = json.dumps(
+    #     {
+    #         "lambdas": [
+    #             {'name': 'map', 'func': 'lambda x: x*2'},
+    #             {'name': 'filter', 'func': 'lambda x: x<4'},
+    #             {'name': 'first'}
+    #         ],
+    #         "data": [1,
+    #                 2,
+    #                 3,
+    #                 4,
+    #                 5,
+    #                 6],
+    #     }
+    # )
 
-st = time()
 
-response = lambda_client.invoke(
-    FunctionName='coordinator',
-    Payload=data,
-    LogType='Tail')
+def invoke_coordinator(data):
+    print("invoking coordinator...")
+    st = time()
 
-et = time()
+    response = lambda_client.invoke(
+        FunctionName='coordinator',
+        Payload=data,
+        LogType='Tail')
 
-result = extract_payload(response)
+    et = time()
 
-print("Result: " + str(result))
-print("Time: ", et - st)
+    result = extract_payload(response)
+    elapsed = et - st
+    print("Result: " + str(result))
+    print("Time: ", elapsed)
+    return result, elapsed
 
 # dane przetwarzamy w batchach
 # po kazdej funkcji dzielimy i skladamy ale nie przed kazda warto skladac -> analiza kiedy skladac a kiedy nie
