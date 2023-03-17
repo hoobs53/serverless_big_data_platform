@@ -1,0 +1,21 @@
+{
+    "lambdas": [
+      {
+        "name": "map",
+        "func": "lambda x: x*2"
+      },
+      {
+        "name": "filter",
+        "func": "lambda x: x>=6"
+      },
+      {
+        "name": "first"
+      }
+    ],
+    "data": [
+      1,
+      2,
+      3,
+      4
+    ]
+  }
