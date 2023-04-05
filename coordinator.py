@@ -1,4 +1,6 @@
 import json
+from time import time
+
 import boto3
 import itertools
 from concurrent.futures import ThreadPoolExecutor
@@ -8,12 +10,15 @@ lambda_client = boto3.client('lambda', region_name="eu-central-1")
 dynamo_client = boto3.resource(service_name='dynamodb', region_name="eu-central-1")
 table = dynamo_client.Table('intermediate1')
 
-logs = {}
+stats = {}
+num_of_batches = 3
 
 
-def init_logs():
-    global logs
-    logs = {"splits_in_total": 0, "lambdas_executed": [], "merges_in_total": 0}
+def init_logs(lambdas_to_run):
+    global stats
+    stats = {"splits_in_total": 0, "lambdas_executed": [], "merges_in_total": 0, "total_time":   0, "lambda_execution_times": {}}
+    for lambda_to_run in lambdas_to_run:
+        stats["lambda_execution_times"][lambda_to_run["name"]] = 0
 
 
 def extract_payload(response):
@@ -31,33 +36,38 @@ def handle_requests(lambdas, data):
     i = 0
     function_to_run = "None"
     for function_name in lambdas:
+        st = time()
         function_to_run = function_name['name']
-        if function_name['name'] in ['first', 'take', 'count', 'reduce', 'group_by_key', 'group_by_value',
-                                     'reduce_by_key', 'union']:
+        if not should_batch(function_to_run):
             break
-        print("Invoking function '%s'..." % function_name['name'])
-        logs["lambdas_executed"].append(function_to_run)
+        print("Invoking function '%s'..." % function_to_run)
+        stats["lambdas_executed"].append(function_to_run)
         if 'func' in function_name:
             payload = {'id': data, 'func': function_name['func']}
         else:
             payload = {'id': data}
         response = lambda_client.invoke(
-            FunctionName=function_name['name'],
+            FunctionName=function_to_run,
             Payload=json.dumps(payload),
             LogType='Tail')
         data = extract_payload(response)
         i += 1
+        et = time()
+        stats["lambda_execution_times"][function_to_run] += et - st
         if i == len(lambdas):
             function_to_run = "None"
     return data, function_to_run
 
 
 def handle_one_request(lambdas, data):
+    st = time()
     function_to_run = lambdas[0]['name']
-    logs["lambdas_executed"].append(function_to_run)
+    stats["lambdas_executed"].append(function_to_run)
     print("Invoking function '%s'..." % function_to_run)
     if 'func' in lambdas[0]:
         payload = {'id': data, 'func': lambdas[0]['func']}
+    elif 'algorithm' in lambdas[0]:
+        payload = {'id':data, 'algorithm': lambdas[0]['algorithm']}
     else:
         payload = {'id': data}
     response = lambda_client.invoke(
@@ -65,6 +75,8 @@ def handle_one_request(lambdas, data):
         Payload=json.dumps(payload),
         LogType='Tail')
     data = extract_payload(response)
+    et = time()
+    stats["lambda_execution_times"][function_to_run] += et - st
     if len(lambdas) == 1:
         function_to_run = "None"
     else:
@@ -72,16 +84,43 @@ def handle_one_request(lambdas, data):
     return data, function_to_run
 
 
+def handle_sort_request(lambda_data, data):
+    futs = []
+    data_batches = split_list(data, num_of_batches)
+    i = 1
+    with ThreadPoolExecutor(max_workers=num_of_batches) as executor:
+        for batch in data_batches:
+            file_key = i
+            table.put_item(Item={'id': file_key, 'value': json.dumps(batch)})
+            futs.append(
+                executor.submit(handle_one_request,
+                                lambdas=[lambda_data],
+                                data=file_key
+                                )
+            )
+            i += 1
+        data = [fut.result() for fut in futs]
+        data = merge_data(data)
+        table.put_item(Item={'id': 50, 'value': json.dumps(data)})
+        data = handle_one_request(lambdas=[{'name': 'sort', 'algorithm': lambda_data['algorithm']}], data=50)[0]
+        data = get_from_dynamo(data)
+        return data
+
+
 def get_from_dynamo(key):
-    data = table.get_item(Key={'id': key})
-    return extract_body(data)
+    data = json.loads(table.get_item(Key={'id': key})['Item']['value'])
+    return data
 
 
 def merge_data(data):
-    logs["merges_in_total"] += 1
+    stats["merges_in_total"] += 1
     dynamo_data = []
     for d in data:
-        for d2 in json.loads(table.get_item(Key={'id': d[0]})['Item']['value']):
+        print(d)
+        d_dynamo = json.loads(table.get_item(Key={'id': d[0]})['Item']['value'])
+        if not isinstance(d_dynamo, list):
+            return [d_dynamo]
+        for d2 in d_dynamo:
             dynamo_data.append(d2)
     result = []
     for d in dynamo_data:
@@ -90,8 +129,10 @@ def merge_data(data):
 
 
 def split_list(alist, wanted_parts=3):
-    logs["default_batch_size"] = wanted_parts
-    logs["splits_in_total"] += 1
+    if not isinstance(alist, list):
+        return [alist]
+    stats["num_of_batches"] = wanted_parts
+    stats["splits_in_total"] += 1
     length = len(alist)
     return [alist[i * length // wanted_parts: (i + 1) * length // wanted_parts]
             for i in range(wanted_parts)]
@@ -99,25 +140,35 @@ def split_list(alist, wanted_parts=3):
 
 def should_batch(lambda_name):
     return lambda_name not in ['first', 'take', 'count', 'reduce', 'group_by_key', 'group_by_value', 'reduce_by_key',
-                               'union']
+                               'union', 'sort']
 
 
-def lambda_handler(event, context):
-    init_logs()
+def lambda_handler(event, _):
+    global num_of_batches
+    st = time()
     lambdas_to_run = event['lambdas']
+    init_logs(lambdas_to_run)
     lambdas_left = deque(lambdas_to_run)
     data = event['data']
-    security_grzybek = 0
+    if 'num_of_batches' in event:
+        num_of_batches = event['num_of_batches']
 
-    while True:
-        if should_batch(lambdas_left[0]['name']):
+    iterations = 0
+
+    while iterations < (len(lambdas_to_run) + 1):
+        if lambdas_left[0]['name'] == 'sort':
+            data = handle_sort_request(lambdas_left[0], data)
+            lambdas_left.popleft()
+            if len(lambdas_left) == 0:
+                break
+        elif should_batch(lambdas_left[0]['name']):
             futs = []
-            data_batches = split_list(data)
+            data_batches = split_list(data, num_of_batches)
             i = 1
-            with ThreadPoolExecutor(max_workers=3) as executor:
+            with ThreadPoolExecutor(max_workers=num_of_batches) as executor:
                 for batch in data_batches:
                     file_key = i
-                    table.put_item(Item={'id': file_key, 'value': json.dumps(batch), 'type': 'int set'})
+                    table.put_item(Item={'id': file_key, 'value': json.dumps(batch)})
                     futs.append(
                         executor.submit(handle_requests,
                                         lambdas=lambdas_left,
@@ -136,8 +187,7 @@ def lambda_handler(event, context):
                     lambdas_left = deque(itertools.dropwhile(lambda x: x['name'] != next_func, lambdas_left))
                     data = merge_data(data)
         else:
-            print("one: " + str(data))
-            table.put_item(Item={'id': 50, 'value': json.dumps(data), 'type': 'int set'})
+            table.put_item(Item={'id': 50, 'value': json.dumps(data)})
             data = handle_one_request(
                 lambdas=lambdas_left,
                 data=50
@@ -147,11 +197,11 @@ def lambda_handler(event, context):
             if next_func == "None":
                 break
             lambdas_left.popleft()
-        security_grzybek += 1
-        if security_grzybek >= 10:
-            print("security grzybek")
-            break
+        iterations += 1
+
+    et = time()
+    stats["total_time"] = et - st
     return {
         'statusCode': 200,
-        'body': {"data": data, "logs": logs}
+        'body': {"data": data, "stats": stats}
     }

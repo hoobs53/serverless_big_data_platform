@@ -5,7 +5,7 @@ from zipfile import ZipFile
 from os import path
 
 LAMBDA_NAMES = ['coordinator', 'count', 'distinct', 'filter', 'first', 'group_by_key', 'group_by_value',
-                'intersection', 'map', 'reduce_by_key', 'reduce', 'take', 'union', 'take_ordered']
+                'intersection', 'map', 'reduce_by_key', 'reduce', 'take', 'union', 'take_ordered', 'sort']
 
 REGION = "eu-central-1"
 
@@ -225,10 +225,20 @@ def init(update_lambdas):
         print("Unexpected error during policy attachment: " + str(e))
 
     try:
-        print("attaching CloudWatchLogsFullAccess policy to iam role...")
+        print("attaching AWSLambdaRole policy to iam role...")
         iam.attach_role_policy(
             RoleName='CoordinatorLambdaExecution',
             PolicyArn='arn:aws:iam::aws:policy/service-role/AWSLambdaRole',
+        )
+
+    except Exception as e:
+        print("Unexpected error during policy attachment: " + str(e))
+
+    try:
+        print("attaching CloudWatchLogsFullAccess policy to iam role...")
+        iam.attach_role_policy(
+            RoleName='CoordinatorLambdaExecution',
+            PolicyArn='arn:aws:iam::aws:policy/CloudWatchLogsFullAccess',
         )
 
     except Exception as e:
@@ -285,8 +295,7 @@ def invoke_coordinator(data):
 
     result = extract_payload(response)
     elapsed = et - st
-    print("Result: " + str(result))
-    print("Time: ", elapsed)
+    print("Processing executed in " + str(elapsed) + " seconds")
     return result, elapsed
 
 # dane przetwarzamy w batchach

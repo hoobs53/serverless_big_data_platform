@@ -92,7 +92,7 @@ class App:
         self.result_label.configure(text="Sending request to aws...")
         result, time_elapsed = invoke_coordinator(contents)
         self.result_label.configure(text="Processing ended in: " + str(round(time_elapsed, 3)) + " s\n Result: " + str(
-            result["data"]) + "\nLogs: " + str(result["logs"]))
+            result["data"]) + "\nLogs: " + str(result["stats"]))
         save_to_file(result)
 
 

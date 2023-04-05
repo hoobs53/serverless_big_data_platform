@@ -1,5 +1,6 @@
 import boto3
 import json
+import random
 
 def lambda_handler(event, context):
     dynamo_client = boto3.resource(service_name='dynamodb', region_name="eu-central-1")
