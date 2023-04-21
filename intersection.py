@@ -18,9 +18,7 @@ def lambda_handler(event, context):
         dynamo_data.append(data)
     result = list(set.intersection(*map(set, dynamo_data)))
 
-    table.put_item(Item={'id': keys[0], 'value': json.dumps(result), 'type': 'int set'})
-
     return {
         'statusCode': 200,
-        'body': json.dumps({'id': keys[0]})
+        'body': result
     }

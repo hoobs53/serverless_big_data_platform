@@ -14,9 +14,7 @@ def lambda_handler(event, context):
         if not i in result_set:
             result_set.append(i)
 
-    table.put_item(Item={'id': key, 'value': json.dumps(result_set), 'type': 'int set'})
-
     return {
         'statusCode': 200,
-        'body': event
+        'body': result_set
     }

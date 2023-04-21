@@ -15,7 +15,7 @@ def lambda_handler(event, context):
 
     result = []
     s3_data = []
-    for k in keys.items():
+    for k in keys:
         dynamo_data = table.get_item(Key={'id': k})['Item']['value']
         data = json.loads(dynamo_data)
         for d in data:

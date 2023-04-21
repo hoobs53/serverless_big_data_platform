@@ -96,6 +96,7 @@ class App:
         save_to_file(result)
 
 
-root = tk.Tk()
-my_app = App(root)
-root.mainloop()
+if __name__ == "__main__":
+    root = tk.Tk()
+    my_app = App(root)
+    root.mainloop()

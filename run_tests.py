@@ -2,14 +2,13 @@ from aws import invoke_coordinator
 import json
 import matplotlib.pyplot as plt
 
-
 scenarios = {}
 
 
 def run_all_benchmarks(data):
-    results = {"word_count": (invoke_coordinator(data["word_count"])),
-               "pi_estimation": (invoke_coordinator(data["pi_estimation"])),
-               "sort": (invoke_coordinator(data["sort"]))}
+    results = {}
+    for k,v in data.items():
+        results[k] = invoke_coordinator(data[k])
     print()
     return results
 
@@ -37,17 +36,17 @@ def generate_plot(batches, times, title, number):
     f.savefig("plots/" + title + ".png")
 
 
-def run_all_scenarios(min_batches, max_batches):
+def run_batched_scenarios(scenarios_dict, min_batches, max_batches):
     batches = list(range(min_batches, max_batches))
     word_count_times = []
     pi_estimation_times = []
     sort_times = []
     for i in range(min_batches, max_batches):
         print("running tests for num of batches = " + str(i))
-        for k, v in scenarios.items():
-            scenarios[k]["num_of_batches"] = i
-        datasets_input = scenarios.copy()
-        for k, v in scenarios.items():
+        for k, v in scenarios_dict.items():
+            scenarios_dict[k]["num_of_batches"] = i
+        datasets_input = scenarios_dict.copy()
+        for k, v in scenarios_dict.items():
             datasets_input[k] = json.dumps(datasets_input[k])
         benchmark_results = run_all_benchmarks(datasets_input)
         word_count_times.append(benchmark_results["word_count"][1])
@@ -59,11 +58,26 @@ def run_all_scenarios(min_batches, max_batches):
     generate_plots(batches, word_count_times, pi_estimation_times, sort_times)
 
 
+def run_scenarios(scenarios_dict):
+    datasets_input = scenarios_dict.copy()
+    for k, v in scenarios_dict.items():
+        datasets_input[k] = json.dumps(datasets_input[k])
+    benchmark_results = run_all_benchmarks(datasets_input)
+    with open("./test_results/aws_benchmark_result_non_batched.json", "w") as f:
+        f.write(json.dumps(benchmark_results))
+
+
 if __name__ == "__main__":
-    scenarios = {
+    batched_scenarios = {
         "word_count": json.loads(read_file("./test_cases/test_word_count.json")),
         "pi_estimation": json.loads(read_file("./test_cases/test_pi_estimation.json")),
         "sort": json.loads(read_file("./test_cases/test_sort.json"))
     }
+    scenarios = {
+        "union_group_by_value": json.loads(read_file("./test_cases/test_union_group_by_value.json")),
+        "distinct_take_ordered": json.loads(read_file("./test_cases/test_distinct_take_ordered.json")),
+        "test_union_group_by_value": json.loads(read_file("./test_cases/test_union_group_by_value.json"))
+    }
 
-    run_all_scenarios(1, 11)
+    run_scenarios(scenarios)
+    run_batched_scenarios(batched_scenarios, 3, 6)

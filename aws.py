@@ -4,8 +4,8 @@ from time import sleep, time
 from zipfile import ZipFile
 from os import path
 
-LAMBDA_NAMES = ['coordinator', 'count', 'distinct', 'filter', 'first', 'group_by_key', 'group_by_value',
-                'intersection', 'map', 'reduce_by_key', 'reduce', 'take', 'union', 'take_ordered', 'sort']
+LAMBDA_NAMES = ['coordinator', 'count', 'distinct', 'filter', 'first', 'group_by_key', 'group_by_value', 'intersection', 'map',
+                'reduce_by_key', 'reduce', 'take', 'union', 'take_ordered', 'sort', 'coordinator2', 'map2', 'reduce_by_key2']
 
 REGION = "eu-central-1"
 
@@ -29,9 +29,6 @@ def extract_payload(resp):
 def zip_code(lambda_name, update_lambdas):
     if update_lambdas or (not path.isfile(lambda_name + '.zip')):
         with ZipFile(lambda_name + '.zip', 'w') as zip_file:
-            if lambda_name in ['take_ordered']:
-                zip_file.write(lambda_name + '_func.py')
-
             zip_file.write(lambda_name + '.py')
             zip_file.close()
 
@@ -319,3 +316,15 @@ def invoke_coordinator(data):
 # od polowy lutego chyba 13 akademia <- nauka pod tamtejsza praca 2-3 miesiace
 # aptive firma 
 # ttrp 1,5tyg
+
+
+# wiecej scenariuszy!
+# porownac z innym frameworkiem
+# umozliwic konfiguracje np batchow i uwzglednic w scenariuszach
+# zautomatyzowac wykonanie scenariuszow dla roznych konfiguracji i automatycznie wygenerowac raport
+
+
+# hadoop i wszystkie testy
+# dostosowac testy i batch numbery na sparku zeby bylo max analogicznie
+# wygenerowac wykresiki i bedziemy wnioskowac ostro
+# projekcik na overlafie i moze juz jakis spis tresci

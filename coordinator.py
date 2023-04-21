@@ -16,7 +16,8 @@ num_of_batches = 3
 
 def init_logs(lambdas_to_run):
     global stats
-    stats = {"splits_in_total": 0, "lambdas_executed": [], "merges_in_total": 0, "total_time":   0, "lambda_execution_times": {}}
+    stats = {"splits_in_total": 0, "lambdas_executed": [], "merges_in_total": 0, "total_time": 0,
+             "lambda_execution_times": {}}
     for lambda_to_run in lambdas_to_run:
         stats["lambda_execution_times"][lambda_to_run["name"]] = 0
 
@@ -64,12 +65,15 @@ def handle_one_request(lambdas, data):
     function_to_run = lambdas[0]['name']
     stats["lambdas_executed"].append(function_to_run)
     print("Invoking function '%s'..." % function_to_run)
+    payload = {'id': data}
     if 'func' in lambdas[0]:
-        payload = {'id': data, 'func': lambdas[0]['func']}
-    elif 'algorithm' in lambdas[0]:
-        payload = {'id':data, 'algorithm': lambdas[0]['algorithm']}
-    else:
-        payload = {'id': data}
+        payload['func'] = lambdas[0]['func']
+    if 'algorithm' in lambdas[0]:
+        payload['algorithm'] = lambdas[0]['algorithm']
+    if 'ascending' in lambdas[0]:
+        payload['ascending'] = lambdas[0]['ascending']
+    if 'no_of_elements' in lambdas[0]:
+        payload['no_of_elements'] = lambdas[0]['no_of_elements']
     response = lambda_client.invoke(
         FunctionName=function_to_run,
         Payload=json.dumps(payload),
@@ -139,8 +143,9 @@ def split_list(alist, wanted_parts=3):
 
 
 def should_batch(lambda_name):
-    return lambda_name not in ['first', 'take', 'count', 'reduce', 'group_by_key', 'group_by_value', 'reduce_by_key',
-                               'union', 'sort']
+    return lambda_name not in ['first', 'take', 'take_ordered', 'count', 'reduce', 'group_by_key', 'group_by_value',
+                               'reduce_by_key',
+                               'union', 'sort', 'intersection', 'distinct']
 
 
 def lambda_handler(event, _):
@@ -156,6 +161,7 @@ def lambda_handler(event, _):
     iterations = 0
 
     while iterations < (len(lambdas_to_run) + 1):
+        print(lambdas_left)
         if lambdas_left[0]['name'] == 'sort':
             data = handle_sort_request(lambdas_left[0], data)
             lambdas_left.popleft()
@@ -187,11 +193,19 @@ def lambda_handler(event, _):
                     lambdas_left = deque(itertools.dropwhile(lambda x: x['name'] != next_func, lambdas_left))
                     data = merge_data(data)
         else:
-            table.put_item(Item={'id': 50, 'value': json.dumps(data)})
-            data = handle_one_request(
-                lambdas=lambdas_left,
-                data=50
-            )
+            if lambdas_left[0]['name'] == 'intersection' or lambdas_left[0]['name'] == 'union':
+                table.put_item(Item={'id': 51, 'value': json.dumps(data[0])})
+                table.put_item(Item={'id': 52, 'value': json.dumps(data[1])})
+                data = handle_one_request(
+                    lambdas=lambdas_left,
+                    data=[51, 52]
+                )
+            else:
+                table.put_item(Item={'id': 50, 'value': json.dumps(data)})
+                data = handle_one_request(
+                    lambdas=lambdas_left,
+                    data=50
+                )
             next_func = data[1]
             data = data[0]
             if next_func == "None":
