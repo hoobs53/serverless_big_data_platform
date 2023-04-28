@@ -33,7 +33,7 @@ def generate_plot(batches, times, title, number):
     plt.ylabel("time (s)")
     plt.title(title)
     f.show()
-    f.savefig("plots/" + title + ".png")
+    f.savefig("plots/aws_" + title + ".png")
 
 
 def run_batched_scenarios(scenarios_dict, min_batches, max_batches):
@@ -80,4 +80,4 @@ if __name__ == "__main__":
     }
 
     run_scenarios(scenarios)
-    run_batched_scenarios(batched_scenarios, 3, 6)
+    run_batched_scenarios(batched_scenarios, 9, 11)

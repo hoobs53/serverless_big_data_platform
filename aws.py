@@ -328,3 +328,4 @@ def invoke_coordinator(data):
 # dostosowac testy i batch numbery na sparku zeby bylo max analogicznie
 # wygenerowac wykresiki i bedziemy wnioskowac ostro
 # projekcik na overlafie i moze juz jakis spis tresci
+#templatki na stronie wydzialu lub na stronie sobanca

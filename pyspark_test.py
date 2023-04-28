@@ -1,9 +1,11 @@
-from pyspark.sql import SparkSession
+import pyspark
 from time import time
 import random
 import json
+import matplotlib.pyplot as plt
 
-sc = SparkSession.builder.getOrCreate().sparkContext
+sc = pyspark.SparkContext('local[*]')
+
 
 def generate_data_to_sort(size, n, m):
     result = []
@@ -15,9 +17,8 @@ def generate_data_to_sort(size, n, m):
 
     return result
 
+
 datasets_input = {
-    "word_count": "./test_cases/words.txt",
-    "pi_estimation": 1000,
     "intersection_reduce": [
         [59, 207, 89, 248, 45, 307, 70, 55, 12, 156, 89, 225, 204, 71, 251, 30, 72, 145, 101, 62, 181, 286, 234, 198,
          300, 220, 54, 189, 163, 289, 268, 66, 155, 157, 188, 330, 200, 160, 290, 182, 280, 250, 174, 96, 222, 10, 26,
@@ -108,26 +109,30 @@ datasets_input = {
                 2
             ]
         ]],
-    "sort": generate_data_to_sort(1000, 0, 333),
     "distinct_take_ordered": generate_data_to_sort(1000, 1, 100)
+}
+batched_datasets_input = {
+    "word_count": "./test_cases/words.txt",
+    "pi_estimation": 1000,
+    "sort": generate_data_to_sort(1000, 0, 333),
 }
 
 
-def test_word_count(filepath):
+def test_word_count(filepath, num_partitions):
     st = time()
-    words = sc.textFile(filepath).flatMap(lambda line: line.split(" "))
+    words = sc.textFile(filepath, num_partitions).flatMap(lambda line: line.split(" "))
     result = words.map(lambda word: (word, 1)).reduceByKey(lambda a, b: a + b).collect()
     et = time()
     return result, et - st
 
 
-def test_pi_estimation(num_of_samples):
+def test_pi_estimation(num_of_samples, num_partitions):
     def inside(_):
         x, y = random.random(), random.random()
         return x * x + y * y < 1
 
     st = time()
-    count = sc.parallelize(range(0, num_of_samples)).filter(inside).count()
+    count = sc.parallelize(range(0, num_of_samples), num_partitions).filter(inside).count()
     result = 4.0 * (count / num_of_samples)
     et = time()
     return result, et - st
@@ -135,8 +140,8 @@ def test_pi_estimation(num_of_samples):
 
 def test_intersection_reduce(data):
     st = time()
-    rdd = sc.parallelize(data[0])
-    rdd2 = sc.parallelize(data[1])
+    rdd = sc.parallelize(data[0], 1)
+    rdd2 = sc.parallelize(data[1], 1)
     rdd = rdd.intersection(rdd2)
     result = rdd.reduce(lambda a, b: a + b)
     et = time()
@@ -145,8 +150,8 @@ def test_intersection_reduce(data):
 
 def test_union_group_by_value(data):
     st = time()
-    rdd = sc.parallelize(data[0])
-    rdd2 = sc.parallelize(data[1])
+    rdd = sc.parallelize(data[0], 1)
+    rdd2 = sc.parallelize(data[1], 1)
     rdd = rdd.union(rdd2)
     result = rdd.groupBy(lambda a: a[1]).mapValues(list).collect()
     et = time()
@@ -155,17 +160,17 @@ def test_union_group_by_value(data):
 
 def test_distinct_take_ordered(data):
     st = time()
-    rdd = sc.parallelize(data)
+    rdd = sc.parallelize(data, 1)
     rdd = rdd.distinct()
     result = rdd.takeOrdered(5)
     et = time()
     return result, et - st
 
 
-def test_sort(data):
+def test_sort(data, num_partitions):
     print("Data before sort:")
     st = time()
-    rdd = sc.parallelize(data)
+    rdd = sc.parallelize(data, num_partitions)
     result = rdd.sortBy(lambda x: x).collect()
     et = time()
     return result, et - st
@@ -173,21 +178,51 @@ def test_sort(data):
 
 def run_all_benchmarks(datasets):
     results = {
-        "word_count": (test_word_count(datasets["word_count"])),
-        "pi_estimation": (test_pi_estimation(datasets["pi_estimation"])),
         "intersection_reduce": (test_intersection_reduce(datasets["intersection_reduce"])),
         "union_group_by_value": (test_union_group_by_value(datasets["union_group_by_value"])),
-        "distinct_take_ordered": (test_distinct_take_ordered(datasets["distinct_take_ordered"])),
-        "sort": (test_sort(datasets["sort"]))
+        "distinct_take_ordered": (test_distinct_take_ordered(datasets["distinct_take_ordered"]))
     }
 
-    return results
+    with open("test_results/pyspark_benchmark_result_non_batched.json", "w") as f:
+        f.write(json.dumps(results))
+
+
+def generate_plots(batches, word_count_times, pi_estimation_times, sort_times):
+    generate_plot(batches, word_count_times, "word_count", 1)
+    generate_plot(batches, pi_estimation_times, "pi_estimation", 2)
+    generate_plot(batches, sort_times, "sort", 3)
+    plt.show()
+
+def generate_plot(batches, times, title, number):
+    f = plt.figure(num=number)
+
+    plt.bar(batches, times, color='coral')
+    plt.xlabel("number of batches")
+    plt.ylabel("time (s)")
+    plt.title(title)
+    f.show()
+    f.savefig("plots/pyspark_" + title + ".png")
+
+def run_all_benchmarks_batched(datasets, min_batches, max_batches):
+    batches = list(range(min_batches, max_batches))
+    word_count_times = []
+    pi_estimation_times = []
+    sort_times = []
+    for num_partitions in range(min_batches, max_batches):
+        results = {
+            "word_count": (test_word_count(datasets["word_count"], num_partitions)),
+            "pi_estimation": (test_pi_estimation(datasets["pi_estimation"], num_partitions)),
+            "sort": (test_sort(datasets["sort"], num_partitions))
+        }
+        word_count_times.append(results["word_count"][1])
+        pi_estimation_times.append(results["pi_estimation"][1])
+        sort_times.append(results["sort"][1])
+        with open("./test_results/pyspark_benchmark_result_batch_num_" + str(num_partitions) + ".json", "w") as f:
+            f.write(json.dumps(results))
+
+    generate_plots(batches, word_count_times, pi_estimation_times, sort_times)
 
 
 if __name__ == "__main__":
-    benchmark_results = run_all_benchmarks(datasets_input)
-
-    print(benchmark_results)
-
-    with open("test_results/pyspark_benchmark_result.json", "w") as f:
-        f.write(json.dumps(benchmark_results))
+    run_all_benchmarks(datasets_input)
+    run_all_benchmarks_batched(batched_datasets_input, 1, 15)
