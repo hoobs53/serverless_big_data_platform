@@ -9,6 +9,7 @@ from collections import deque
 lambda_client = boto3.client('lambda', region_name="eu-central-1")
 dynamo_client = boto3.resource(service_name='dynamodb', region_name="eu-central-1")
 table = dynamo_client.Table('intermediate1')
+s3_client = boto3.resource(service_name='s3', region_name="eu-central-1")
 
 stats = {}
 num_of_batches = 3
@@ -20,6 +21,17 @@ def init_logs(lambdas_to_run):
              "lambda_execution_times": {}}
     for lambda_to_run in lambdas_to_run:
         stats["lambda_execution_times"][lambda_to_run["name"]] = 0
+
+
+def get_from_s3(key):
+    data = json.loads(s3_client.get_object(Bucket='intermediate1-sbg-bucket', Key=str(key)))
+    data = extract_payload(data)
+    return data
+
+
+def load_input(input_file):
+    data = get_from_s3(input_file)
+    return data
 
 
 def extract_payload(response):
@@ -154,7 +166,8 @@ def lambda_handler(event, _):
     lambdas_to_run = event['lambdas']
     init_logs(lambdas_to_run)
     lambdas_left = deque(lambdas_to_run)
-    data = event['data']
+    data = load_input(event['input'])
+    # data = event['data']
     if 'num_of_batches' in event:
         num_of_batches = event['num_of_batches']
 
@@ -215,7 +228,9 @@ def lambda_handler(event, _):
 
     et = time()
     stats["total_time"] = et - st
+    result = {"data": data, "stats": stats}
+    s3_client.put_object(Body=json.dumps(result), Key=event['output'], Bucket='intermediate1-sbg-bucket')
     return {
         'statusCode': 200,
-        'body': {"data": data, "stats": stats}
+        'body': result
     }
