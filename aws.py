@@ -294,38 +294,3 @@ def invoke_coordinator(data):
     elapsed = et - st
     print("Processing executed in " + str(elapsed) + " seconds")
     return result, elapsed
-
-# dane przetwarzamy w batchach
-# po kazdej funkcji dzielimy i skladamy ale nie przed kazda warto skladac -> analiza kiedy skladac a kiedy nie
-# wykorzystanie s3
-# dokonczyc reszte funkcji
-# przekmina odnosnie ilosci koordynatorow i samych koordynatorow
-# -> co jesli koordynator padnie
-# -> jak przekazac innej replikacji dane, ktore on przechowywal (ktora funkcje wywolac, gdzie znajduja sie dane)
-# -> jak odtworzyc dzialanie koordynatora na replikacji
-
-
-# testy na innej bazce
-# proby zoptymalizowania przetwarzania -> co jesli np map bedzie trwal za dlugo
-# czy da sie jakas lambda kooperowac zeby to trwalo lepiej
-# czy moze rozbic to na jakies pipeline'y
-# albo w jednym porozbijac dalej rownolegle dane
-# generalnie podrasowanie wydajnosciowe
-
-# plm dział
-# od polowy lutego chyba 13 akademia <- nauka pod tamtejsza praca 2-3 miesiace
-# aptive firma 
-# ttrp 1,5tyg
-
-
-# wiecej scenariuszy!
-# porownac z innym frameworkiem
-# umozliwic konfiguracje np batchow i uwzglednic w scenariuszach
-# zautomatyzowac wykonanie scenariuszow dla roznych konfiguracji i automatycznie wygenerowac raport
-
-
-# hadoop i wszystkie testy
-# dostosowac testy i batch numbery na sparku zeby bylo max analogicznie
-# wygenerowac wykresiki i bedziemy wnioskowac ostro
-# projekcik na overlafie i moze juz jakis spis tresci
-#templatki na stronie wydzialu lub na stronie sobanca
