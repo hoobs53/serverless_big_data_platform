@@ -4,26 +4,6 @@
         "name": "group_by_value"
       }
     ],
-    "data": [
-      [
-        "A",
-        0
-      ],
-      [
-        "B",
-        1
-      ],
-      [
-        "C",
-        0
-      ],
-      [
-        "D",
-        2
-      ],
-      [
-        "E",
-        2
-      ]
-    ]
+    "input": "input.json",
+    "output": "output.json"
   }

@@ -4,8 +4,8 @@ from time import sleep, time
 from zipfile import ZipFile
 from os import path
 
-LAMBDA_NAMES = ['coordinator', 'count', 'distinct', 'filter', 'first', 'group_by_key', 'group_by_value', 'intersection', 'map',
-                'reduce_by_key', 'reduce', 'take', 'union', 'take_ordered', 'sort', 'coordinator2', 'map2', 'reduce_by_key2']
+LAMBDA_NAMES = ['coordinator', 'count', 'distinct', 'filter', 'first', 'group_by_key', 'group_by_value', 'intersection',
+                'map', 'reduce_by_key', 'reduce', 'take', 'union', 'take_ordered', 'sort']
 
 REGION = "eu-central-1"
 
@@ -261,22 +261,6 @@ def init(update_lambdas):
     sleep(3)
 
     print("successfully initialized")
-
-    # data = json.dumps(
-    #     {
-    #         "lambdas": [
-    #             {'name': 'map', 'func': 'lambda x: x*2'},
-    #             {'name': 'filter', 'func': 'lambda x: x<4'},
-    #             {'name': 'first'}
-    #         ],
-    #         "data": [1,
-    #                 2,
-    #                 3,
-    #                 4,
-    #                 5,
-    #                 6],
-    #     }
-    # )
 
 
 def invoke_coordinator(data):

@@ -193,6 +193,7 @@ def generate_plots(batches, word_count_times, pi_estimation_times, sort_times):
     generate_plot(batches, sort_times, "sort", 3)
     plt.show()
 
+
 def generate_plot(batches, times, title, number):
     f = plt.figure(num=number)
 
@@ -202,6 +203,7 @@ def generate_plot(batches, times, title, number):
     plt.title(title)
     f.show()
     f.savefig("plots/pyspark_" + title + ".png")
+
 
 def run_all_benchmarks_batched(datasets, min_batches, max_batches):
     batches = list(range(min_batches, max_batches))
@@ -225,4 +227,4 @@ def run_all_benchmarks_batched(datasets, min_batches, max_batches):
 
 if __name__ == "__main__":
     run_all_benchmarks(datasets_input)
-    run_all_benchmarks_batched(batched_datasets_input, 1, 15)
+    run_all_benchmarks_batched(batched_datasets_input, 1, 20)

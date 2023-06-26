@@ -5,58 +5,6 @@
         "func": "lambda a, b: (a[0], a[1]+b[1])"
       }
     ],
-    "data": [
-      [
-        "Project",
-        1
-      ],
-      [
-        "Gutenberg",
-        1
-      ],
-      [
-        "Alice",
-        1
-      ],
-      [
-        "Adventures",
-        1
-      ],
-      [
-        "in",
-        1
-      ],
-      [
-        "Wonderland",
-        1
-      ],
-      [
-        "Project",
-        1
-      ],
-      [
-        "Gutenberg",
-        1
-      ],
-      [
-        "Adventures",
-        1
-      ],
-      [
-        "in",
-        1
-      ],
-      [
-        "Wonderland",
-        1
-      ],
-      [
-        "Project",
-        1
-      ],
-      [
-        "Gutenberg",
-        1
-      ]
-    ]
+    "input": "input.json",
+    "output": "output.json"
   }

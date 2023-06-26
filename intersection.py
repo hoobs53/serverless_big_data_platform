@@ -2,12 +2,7 @@ import json
 import boto3
 
 
-def extract_body(response):
-    payload = json.loads(response['Body'].read())
-    return payload
-
-
-def lambda_handler(event, context):
+def lambda_handler(event, _):
     dynamo_client = boto3.resource(service_name='dynamodb', region_name="eu-central-1")
     keys = event['id']
     table = dynamo_client.Table('intermediate1')

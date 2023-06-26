@@ -9,7 +9,7 @@ from collections import deque
 lambda_client = boto3.client('lambda', region_name="eu-central-1")
 dynamo_client = boto3.resource(service_name='dynamodb', region_name="eu-central-1")
 table = dynamo_client.Table('intermediate1')
-s3_client = boto3.resource(service_name='s3', region_name="eu-central-1")
+s3_client = boto3.client('s3', region_name="eu-central-1")
 
 stats = {}
 num_of_batches = 3
@@ -24,8 +24,8 @@ def init_logs(lambdas_to_run):
 
 
 def get_from_s3(key):
-    data = json.loads(s3_client.get_object(Bucket='intermediate1-sbg-bucket', Key=str(key)))
-    data = extract_payload(data)
+    data = s3_client.get_object(Bucket='intermediate1-sbg-bucket', Key=str(key))
+    data = extract_body(data)
     return data
 
 

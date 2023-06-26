@@ -7,7 +7,7 @@ scenarios = {}
 
 def run_all_benchmarks(data):
     results = {}
-    for k,v in data.items():
+    for k, v in data.items():
         results[k] = invoke_coordinator(data[k])
     print()
     return results
@@ -80,4 +80,4 @@ if __name__ == "__main__":
     }
 
     run_scenarios(scenarios)
-    run_batched_scenarios(batched_scenarios, 9, 11)
+    run_batched_scenarios(batched_scenarios, 1, 20)
