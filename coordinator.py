@@ -12,7 +12,7 @@ table = dynamo_client.Table('intermediate1')
 s3_client = boto3.client('s3', region_name="eu-central-1")
 
 stats = {}
-num_of_batches = 3
+num_of_batches = 3 # by default
 
 
 def init_logs(lambdas_to_run):
@@ -91,6 +91,8 @@ def handle_one_request(lambdas, data):
         Payload=json.dumps(payload),
         LogType='Tail')
     data = extract_payload(response)
+    if function_to_run == "flat_map":
+        data = get_from_dynamo(data)
     et = time()
     stats["lambda_execution_times"][function_to_run] += et - st
     if len(lambdas) == 1:
@@ -156,8 +158,7 @@ def split_list(alist, wanted_parts=3):
 
 def should_batch(lambda_name):
     return lambda_name not in ['first', 'take', 'take_ordered', 'count', 'reduce', 'group_by_key', 'group_by_value',
-                               'reduce_by_key',
-                               'union', 'sort', 'intersection', 'distinct']
+                               'reduce_by_key', 'flat_map', 'union', 'sort', 'intersection', 'distinct']
 
 
 def lambda_handler(event, _):
@@ -167,7 +168,6 @@ def lambda_handler(event, _):
     init_logs(lambdas_to_run)
     lambdas_left = deque(lambdas_to_run)
     data = load_input(event['input'])
-    # data = event['data']
     if 'num_of_batches' in event:
         num_of_batches = event['num_of_batches']
 

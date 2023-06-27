@@ -1,6 +1,10 @@
 {
   "lambdas": [
     {
+      "name": "flat_map",
+      "func": "lambda x: x.split()"
+    },
+    {
       "name": "map",
       "func": "lambda x: (x, 1)"
     },
@@ -9,6 +13,7 @@
       "func": "lambda a, b: (a[0], a[1]+b[1])"
     }
   ],
-  "input": "input.json",
-  "output": "output.json"
+  "input": "words.json",
+  "output": "output.json",
+  "num_of_batches": 3
 }

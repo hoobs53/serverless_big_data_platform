@@ -5,7 +5,7 @@ from zipfile import ZipFile
 from os import path
 
 LAMBDA_NAMES = ['coordinator', 'count', 'distinct', 'filter', 'first', 'group_by_key', 'group_by_value', 'intersection',
-                'map', 'reduce_by_key', 'reduce', 'take', 'union', 'take_ordered', 'sort']
+                'map', 'flat_map', 'reduce_by_key', 'reduce', 'take', 'union', 'take_ordered', 'sort']
 
 REGION = "eu-central-1"
 
