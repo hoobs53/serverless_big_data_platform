@@ -20,8 +20,8 @@ def read_file(file_path):
 
 def generate_plots(batches, word_count_times, pi_estimation_times, sort_times):
     generate_plot(batches, word_count_times, "word_count", 1)
-    generate_plot(batches, pi_estimation_times, "pi_estimation", 2)
-    generate_plot(batches, sort_times, "sort", 3)
+    # generate_plot(batches, pi_estimation_times, "pi_estimation", 2)
+    # generate_plot(batches, sort_times, "sort", 3)
     plt.show()
 
 
@@ -50,8 +50,8 @@ def run_batched_scenarios(scenarios_dict, min_batches, max_batches):
             datasets_input[k] = json.dumps(datasets_input[k])
         benchmark_results = run_all_benchmarks(datasets_input)
         word_count_times.append(benchmark_results["word_count"][1])
-        pi_estimation_times.append(benchmark_results["pi_estimation"][1])
-        sort_times.append(benchmark_results["sort"][1])
+        # pi_estimation_times.append(benchmark_results["pi_estimation"][1])
+        # sort_times.append(benchmark_results["sort"][1])
         with open("./test_results/aws_benchmark_result_batch_num_" + str(i) + ".json", "w") as f:
             f.write(json.dumps(benchmark_results))
 
@@ -70,8 +70,8 @@ def run_scenarios(scenarios_dict):
 if __name__ == "__main__":
     batched_scenarios = {
         "word_count": json.loads(read_file("./test_cases/test_word_count.json")),
-        "pi_estimation": json.loads(read_file("./test_cases/test_pi_estimation.json")),
-        "sort": json.loads(read_file("./test_cases/test_sort.json"))
+        # "pi_estimation": json.loads(read_file("./test_cases/test_pi_estimation.json")),
+        # "sort": json.loads(read_file("./test_cases/test_sort.json"))
     }
     scenarios = {
         "union_group_by_value": json.loads(read_file("./test_cases/test_union_group_by_value.json")),
@@ -79,5 +79,5 @@ if __name__ == "__main__":
         "test_union_group_by_value": json.loads(read_file("./test_cases/test_union_group_by_value.json"))
     }
 
-    run_scenarios(scenarios)
-    run_batched_scenarios(batched_scenarios, 1, 20)
+    # run_scenarios(scenarios)
+    run_batched_scenarios(batched_scenarios, 1, 21)

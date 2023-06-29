@@ -119,8 +119,8 @@ def handle_sort_request(lambda_data, data):
             i += 1
         data = [fut.result() for fut in futs]
         data = merge_data(data)
-        table.put_item(Item={'id': 50, 'value': json.dumps(data)})
-        data = handle_one_request(lambdas=[{'name': 'sort', 'algorithm': lambda_data['algorithm']}], data=50)[0]
+        table.put_item(Item={'id': 9999, 'value': json.dumps(data)})
+        data = handle_one_request(lambdas=[{'name': 'sort', 'algorithm': lambda_data['algorithm']}], data=9999)[0]
         data = get_from_dynamo(data)
         return data
 
@@ -167,7 +167,8 @@ def lambda_handler(event, _):
     lambdas_to_run = event['lambdas']
     init_logs(lambdas_to_run)
     lambdas_left = deque(lambdas_to_run)
-    data = load_input(event['input'])
+    if lambdas_left[0]['name'] not in ['intersection', 'union']:
+        data = load_input(event['input'])
     if 'num_of_batches' in event:
         num_of_batches = event['num_of_batches']
 
@@ -207,17 +208,16 @@ def lambda_handler(event, _):
                     data = merge_data(data)
         else:
             if lambdas_left[0]['name'] == 'intersection' or lambdas_left[0]['name'] == 'union':
-                table.put_item(Item={'id': 51, 'value': json.dumps(data[0])})
-                table.put_item(Item={'id': 52, 'value': json.dumps(data[1])})
+                keys = event['input']
                 data = handle_one_request(
                     lambdas=lambdas_left,
-                    data=[51, 52]
+                    data=keys
                 )
             else:
-                table.put_item(Item={'id': 50, 'value': json.dumps(data)})
+                table.put_item(Item={'id': 9999, 'value': json.dumps(data)})
                 data = handle_one_request(
                     lambdas=lambdas_left,
-                    data=50
+                    data=9999
                 )
             next_func = data[1]
             data = data[0]

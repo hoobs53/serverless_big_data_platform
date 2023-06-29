@@ -7,5 +7,5 @@
   ],
   "input": "input.json",
   "output": "output.json",
-  "num_of_batches": 5
+  "num_of_batches": 3
 }

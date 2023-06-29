@@ -113,8 +113,8 @@ datasets_input = {
 }
 batched_datasets_input = {
     "word_count": "./test_cases/words.txt",
-    "pi_estimation": 1000,
-    "sort": generate_data_to_sort(1000, 0, 333),
+    # "pi_estimation": 1000,
+    # "sort": generate_data_to_sort(1000, 0, 333),
 }
 
 
@@ -189,8 +189,8 @@ def run_all_benchmarks(datasets):
 
 def generate_plots(batches, word_count_times, pi_estimation_times, sort_times):
     generate_plot(batches, word_count_times, "word_count", 1)
-    generate_plot(batches, pi_estimation_times, "pi_estimation", 2)
-    generate_plot(batches, sort_times, "sort", 3)
+    # generate_plot(batches, pi_estimation_times, "pi_estimation", 2)
+    # generate_plot(batches, sort_times, "sort", 3)
     plt.show()
 
 
@@ -213,12 +213,12 @@ def run_all_benchmarks_batched(datasets, min_batches, max_batches):
     for num_partitions in range(min_batches, max_batches):
         results = {
             "word_count": (test_word_count(datasets["word_count"], num_partitions)),
-            "pi_estimation": (test_pi_estimation(datasets["pi_estimation"], num_partitions)),
-            "sort": (test_sort(datasets["sort"], num_partitions))
+            # "pi_estimation": (test_pi_estimation(datasets["pi_estimation"], num_partitions)),
+            # "sort": (test_sort(datasets["sort"], num_partitions))
         }
         word_count_times.append(results["word_count"][1])
-        pi_estimation_times.append(results["pi_estimation"][1])
-        sort_times.append(results["sort"][1])
+        # pi_estimation_times.append(results["pi_estimation"][1])
+        # sort_times.append(results["sort"][1])
         with open("./test_results/pyspark_benchmark_result_batch_num_" + str(num_partitions) + ".json", "w") as f:
             f.write(json.dumps(results))
 
@@ -226,5 +226,5 @@ def run_all_benchmarks_batched(datasets, min_batches, max_batches):
 
 
 if __name__ == "__main__":
-    run_all_benchmarks(datasets_input)
-    run_all_benchmarks_batched(batched_datasets_input, 1, 20)
+    # run_all_benchmarks(datasets_input)
+    run_all_benchmarks_batched(batched_datasets_input, 1, 10)
